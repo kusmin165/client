@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# ========================================
+# QUBIC Proof of Useful Work Miner Setup
+# ========================================
+
+# 🪙 Konfigurasi Wallet
+WALLET_ADDRESS="EENQQGXMBCWVTENWKMNEIXYIMEOBEVVZFOWIOMOOMGHSITAMCDQGGCOCDTJM"
+CPU_CORES=7  # 1 core disisakan untuk sistem
+INSTALL_DIR="$HOME/qubic-miner-rs"
+LOG_FILE="$HOME/qubic_miner.log"
+RUN_SCRIPT="$HOME/run_qubic_miner.sh"
+
+# 🔄 Update sistem & install dependensi
+echo "📦 Memperbarui sistem dan memasang dependensi..."
+sudo apt update -y
+sudo apt install -y git curl build-essential cmake screen
+
+# 🦀 Install Rust (jika belum)
+if ! command -v cargo &> /dev/null; then
+    echo "🦀 Menginstal Rust..."
+    curl https://sh.rustup.rs -sSf | sh -s -- -y
+    source "$HOME/.cargo/env"
+else
+    echo "✅ Rust sudah terinstal."
+    source "$HOME/.cargo/env"
+fi
+
+# 📥 Clone miner (qubic-miner-rs)
+if [ ! -d "$INSTALL_DIR" ]; then
+    echo "📥 Clone repo miner..."
+    git clone https://github.com/QuBiC-Foundation/qubic-miner-rs.git "$INSTALL_DIR"
+fi
+
+# 🔨 Build miner
+cd "$INSTALL_DIR"
+echo "🔨 Building miner..."
+cargo build --release
+
+# 🧾 Buat skrip run miner
+echo "🧾 Membuat skrip mining..."
+cat > "$RUN_SCRIPT" <<EOL
+#!/bin/bash
+source "\$HOME/.cargo/env"
+cd "$INSTALL_DIR"
+./target/release/qubic-miner --address $WALLET_ADDRESS --threads $CPU_CORES >> "$LOG_FILE" 2>&1
+EOL
+
+chmod +x "$RUN_SCRIPT"
+
+# 🔁 Auto-start saat boot
+(crontab -l 2>/dev/null; echo "@reboot /bin/bash $RUN_SCRIPT") | crontab -
+
+# 🚀 Jalankan pertama kali
+echo "🚀 Menjalankan miner dengan screen..."
+screen -dmS qubic_pouw_mining "$RUN_SCRIPT"
+
+echo "✅ Miner aktif di background (screen: qubic_pouw_mining)"
+echo "📄 Log file: $LOG_FILE"
+echo "▶ Untuk lihat: screen -r qubic_pouw_mining"
