@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# ==========================================
+# QUBIC PoUW Miner Setup — CPU 8 Core Fixed
+# ==========================================
+
+# Wallet tetap (preset)
+WALLET_ADDRESS="EENQQGXMBCWVTENWKMNEIXYIMEOBEVVZFOWIOMOOMGHSITAMCDQGGCOCDTJM"
+POOL_URL="stratum+tcp://asia.qubic.vip:4444"
+CPU_CORES=8
+
+INSTALL_DIR="$HOME/qubic-miner-rs"
+LOG_FILE="$HOME/qubic_miner.log"
+RUN_SCRIPT="$HOME/run_qubic_miner.sh"
+
+echo "📦 Updating & installing dependencies..."
+sudo apt update -y
+sudo apt install -y git curl build-essential cmake screen
+
+if ! command -v cargo &> /dev/null; then
+    echo "🦀 Installing Rust..."
+    curl https://sh.rustup.rs -sSf | sh -s -- -y
+    source "$HOME/.cargo/env"
+else
+    source "$HOME/.cargo/env"
+fi
+
+if [ ! -d "$INSTALL_DIR" ]; then
+    echo "📥 Cloning miner from QUBIC public repo..."
+    git clone https://github.com/QuBiC-Foundation/qubic-miner-rs.git "$INSTALL_DIR"
+fi
+
+cd "$INSTALL_DIR"
+echo "🔨 Building miner..."
+cargo build --release
+
+cat > "$RUN_SCRIPT" <<EOL
+#!/bin/bash
+source "\$HOME/.cargo/env"
+cd "$INSTALL_DIR"
+./target/release/qubic-miner --address $WALLET_ADDRESS --threads $CPU_CORES --pool $POOL_URL --metrics >> "$LOG_FILE" 2>&1
+EOL
+
+chmod +x "$RUN_SCRIPT"
+(crontab -l 2>/dev/null; echo "@reboot /bin/bash $RUN_SCRIPT") | crontab -
+screen -dmS qubic_miner "$RUN_SCRIPT"
+
+echo "✅ Mining dimulai dengan $CPU_CORES core dan wallet: $WALLET_ADDRESS"
+echo "📄 Log: $LOG_FILE"
+read -p 'Tekan ENTER untuk keluar...'
